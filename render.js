@@ -1,63 +1,61 @@
 import puppeteer from "puppeteer";
 import fs from "fs";
-import path from "path";
 
 export async function renderImage(data) {
-  const {
-    title,
-    cover,
-    trPrice,
-    uaPrice,
-    endDate,
-    platform
-  } = data;
 
-  const templatePath = path.resolve("./template.html");
-  let html = fs.readFileSync(templatePath, "utf8");
+  try {
 
-  // Replace placeholders
-  html = html
-    .replace("{{TITLE}}", title)
-    .replace("{{COVER}}", cover)
-    .replace("{{TR_PRICE}}", trPrice)
-    .replace("{{UA_PRICE}}", uaPrice)
-    .replace("{{END_DATE}}", endDate)
-    .replace("{{PLATFORM}}", platform);
+    // HTML oxu və dəyiş
+    let html = fs.readFileSync("./template.html", "utf8");
 
-  const browser = await puppeteer.launch({
-    headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox"]
-  });
+    html = html
+      .replace("{{TITLE}}", data.title || "")
+      .replace("{{COVER}}", data.cover || "")
+      .replace("{{TR_PRICE}}", data.trPrice || "-")
+      .replace("{{UA_PRICE}}", data.uaPrice || "-")
+      .replace("{{END_DATE}}", data.endDate || "")
+      .replace("{{PLATFORM}}", data.platform || "PS4 • PS5");
 
-  const page = await browser.newPage();
+    // Browser aç
+    const browser = await puppeteer.launch({
+      headless: "new",
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    });
 
-  await page.setViewport({
-    width: 1080,
-    height: 1350
-  });
+    const page = await browser.newPage();
 
-  await page.setContent(html, { waitUntil: "networkidle0" });
+    await page.setViewport({
+      width: 1080,
+      height: 1350
+    });
 
-  // 🔥 AUTO TITLE SIZE
-  await page.evaluate(() => {
-    const title = document.getElementById("title");
-    let size = 60;
-    title.style.fontSize = size + "px";
+    await page.setContent(html, { waitUntil: "networkidle0" });
 
-    while (title.scrollHeight > title.clientHeight && size > 34) {
-      size -= 2;
-      title.style.fontSize = size + "px";
-    }
-  });
+    // AUTO TITLE SIZE (Crash Safe)
+    await page.evaluate(() => {
+      const el = document.getElementById("title");
+      if (!el) return;
 
-  const imagePath = path.resolve("./output.png");
+      let size = 60;
+      el.style.fontSize = size + "px";
 
-  await page.screenshot({
-    path: imagePath,
-    type: "png"
-  });
+      while (el.scrollHeight > el.clientHeight && size > 34) {
+        size -= 2;
+        el.style.fontSize = size + "px";
+      }
+    });
 
-  await browser.close();
+    // Şəkili buffer kimi götür
+    const buffer = await page.screenshot({
+      type: "png"
+    });
 
-  return imagePath;
+    await browser.close();
+
+    return buffer;
+
+  } catch (err) {
+    console.error("RENDER ERROR:", err);
+    throw err;
+  }
 }
