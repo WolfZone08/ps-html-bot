@@ -1,60 +1,84 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8" />
+<meta charset="UTF-8" />
 <style>
-body{margin:0;background:#000;font-family:Arial}
-.canvas{
-width:1080px;height:1350px;position:relative;overflow:hidden;
-background:radial-gradient(circle at 50% 40%, rgba(120,0,120,.4), #000);
+body{
+margin:0;
+width:1080px;
+height:1350px;
+font-family:Arial, Helvetica, sans-serif;
+background:radial-gradient(circle at top,#3a004f,#000);
+color:white;
+position:relative;
+overflow:hidden;
 }
+
+/* TITLE */
 .title{
-position:absolute;top:60px;left:0;right:0;
-text-align:center;font-size:70px;font-weight:900;
-color:#fff;text-transform:uppercase;
+position:absolute;
+top:70px;
+left:100px;
+right:100px;
+text-align:center;
+font-size:60px;
+line-height:1.05;
+font-weight:900;
+text-transform:uppercase;
+text-shadow:0 8px 20px rgba(0,0,0,.7);
+max-height:190px;
+overflow:hidden;
 }
-.priceRow{position:absolute;top:260px;display:flex;align-items:center;gap:20px;}
-.left{left:100px}
-.right{right:100px}
-.price{font-size:90px;font-weight:900;color:#fff}
-.coverWrap{
-position:absolute;top:450px;left:50%;transform:translateX(-50%);
-width:600px;height:600px;
-}
-.cover{
-width:100%;height:100%;object-fit:cover;border-radius:20px;
-box-shadow:0 30px 70px rgba(0,0,0,.6);
-}
+
+/* PLATFORM */
 .platform{
-position:absolute;top:-60px;left:50%;transform:translateX(-50%);
-background:#fff;color:#000;padding:12px 30px;
-font-size:34px;font-weight:900;border-radius:10px;
+position:absolute;
+top:250px;
+left:50%;
+transform:translateX(-50%);
+background:white;
+color:black;
+padding:12px 25px;
+border-radius:20px;
+font-weight:bold;
+font-size:26px;
 }
-.footer{
-position:absolute;bottom:40px;left:0;right:0;
-text-align:center;color:#ddd;font-size:32px;font-weight:700;
+
+/* PRICES */
+.price-box{
+position:absolute;
+top:320px;
+width:100%;
+display:flex;
+justify-content:space-around;
+font-size:48px;
+font-weight:900;
 }
-</style>
-</head>
-<body>
-<div class="canvas">
-<div class="title" id="title">GAME</div>
 
-<div class="priceRow left">
-<div class="price" id="price_tr">0 ₼</div>
-</div>
+/* COVER */
+.coverWrap{
+position:absolute;
+top:430px;
+left:50%;
+transform:translateX(-50%);
+width:680px;
+height:680px;
+}
 
-<div class="priceRow right">
-<div class="price" id="price_ua">0 ₼</div>
-</div>
+.cover{
+width:100%;
+height:100%;
+object-fit:cover;
+border-radius:30px;
+box-shadow:0 20px 60px rgba(0,0,0,.7);
+}
 
-<div class="coverWrap">
-<div class="platform" id="platform">PS4 • PS5</div>
-<img class="cover" id="cover"/>
-</div>
-
-<div class="footer" id="endDate">Endirimin son tarixi</div>
-
-</div>
-</body>
-</html>
+/* END DATE */
+.end-date{
+position:absolute;
+bottom:90px;
+width:100%;
+text-align:center;
+font-size:28px;
+font-weight:700;
+text-shadow:0 4px 12
