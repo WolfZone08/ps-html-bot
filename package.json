@@ -1,5 +1,5 @@
 {
-  "name": "ps-deals-tr-ua-azn-bot",
+  "name": "ps-deals-bot",
   "version": "1.0.0",
   "type": "module",
   "main": "bot.js",
@@ -7,7 +7,6 @@
     "start": "node bot.js"
   },
   "dependencies": {
-    "node-telegram-bot-api": "^0.66.0",
-    "puppeteer": "^23.0.0"
+    "node-telegram-bot-api": "^0.66.0"
   }
 }
