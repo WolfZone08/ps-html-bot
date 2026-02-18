@@ -1,0 +1,13 @@
+{
+  "name": "ps-html-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "node-telegram-bot-api": "^0.64.0",
+    "puppeteer": "^22.15.0"
+  }
+}
