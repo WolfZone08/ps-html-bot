@@ -1,61 +1,37 @@
 import puppeteer from "puppeteer";
-import fs from "fs";
 
-export async function renderImage(data) {
+export async function renderImage(game) {
+  const browser = await puppeteer.launch({
+    args: ["--no-sandbox", "--disable-setuid-sandbox"]
+  });
 
-  try {
+  const page = await browser.newPage();
 
-    // HTML oxu və dəyiş
-    let html = fs.readFileSync("./template.html", "utf8");
+  const html = `
+  <html>
+  <body style="
+    margin:0;
+    width:800px;
+    height:1000px;
+    background:#140018;
+    color:white;
+    font-family:Arial;
+    text-align:center;
+    padding:40px;
+  ">
+    <h2 style="font-size:36px;">${game.title}</h2>
+    <img src="${game.image}" 
+         style="width:400px;height:400px;object-fit:cover;border-radius:20px;margin:30px 0;" />
+    <h3>TR: ${game.tr}</h3>
+    <h3>UA: ${game.ua}</h3>
+    <p>Endirim bitmə tarixi: ${game.date}</p>
+  </body>
+  </html>
+  `;
 
-    html = html
-      .replace("{{TITLE}}", data.title || "")
-      .replace("{{COVER}}", data.cover || "")
-      .replace("{{TR_PRICE}}", data.trPrice || "-")
-      .replace("{{UA_PRICE}}", data.uaPrice || "-")
-      .replace("{{END_DATE}}", data.endDate || "")
-      .replace("{{PLATFORM}}", data.platform || "PS4 • PS5");
+  await page.setContent(html);
+  const file = await page.screenshot({ path: "output.jpg" });
 
-    // Browser aç
-    const browser = await puppeteer.launch({
-      headless: "new",
-      args: ["--no-sandbox", "--disable-setuid-sandbox"]
-    });
-
-    const page = await browser.newPage();
-
-    await page.setViewport({
-      width: 1080,
-      height: 1350
-    });
-
-    await page.setContent(html, { waitUntil: "networkidle0" });
-
-    // AUTO TITLE SIZE (Crash Safe)
-    await page.evaluate(() => {
-      const el = document.getElementById("title");
-      if (!el) return;
-
-      let size = 60;
-      el.style.fontSize = size + "px";
-
-      while (el.scrollHeight > el.clientHeight && size > 34) {
-        size -= 2;
-        el.style.fontSize = size + "px";
-      }
-    });
-
-    // Şəkili buffer kimi götür
-    const buffer = await page.screenshot({
-      type: "png"
-    });
-
-    await browser.close();
-
-    return buffer;
-
-  } catch (err) {
-    console.error("RENDER ERROR:", err);
-    throw err;
-  }
+  await browser.close();
+  return file;
 }
