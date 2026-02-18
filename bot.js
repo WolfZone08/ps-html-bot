@@ -1,71 +1,74 @@
 import TelegramBot from "node-telegram-bot-api";
+import fetch from "node-fetch";
 import * as cheerio from "cheerio";
-import fs from "fs/promises";
 import { renderImage } from "./render.js";
 
-const bot = new TelegramBot(process.env.BOT_TOKEN, { polling:true });
+// BOT TOKEN
+const bot = new TelegramBot(process.env.BOT_TOKEN, {
+  polling: {
+    autoStart: true,
+    interval: 300,
+    params: { timeout: 10 }
+  }
+});
 
-const tiersTR = JSON.parse(await fs.readFile("tiers_tr.json"));
-const tiersUA = JSON.parse(await fs.readFile("tiers_ua.json"));
+// START
+bot.onText(/\/start/, (msg) => {
+  bot.sendMessage(msg.chat.id, "Link göndər və ya /d 16.02.2026 yaz");
+});
 
-function map(num, tiers){
-  const t = tiers.find(x=>num>=x.min && num<=x.max);
-  return t ? `${t.azn} ₼` : "-";
-}
+// TARIX KOMANDASI
+let discountDate = "";
 
-function toNum(str){
-  if(!str)return null;
-  const s=str.replace(/[^\d,.\s]/g,"").replace(/\.(?=\d{3})/g,"").replace(",",".");
-  return Number(s);
-}
+bot.onText(/\/d (.+)/, (msg, match) => {
+  discountDate = match[1];
+  bot.sendMessage(msg.chat.id, "Tarix yadda saxlandı: " + discountDate);
+});
 
-function detectPlatform(text){
-  const t=text.toLowerCase();
-  if(t.includes("ps5") && !t.includes("ps4")) return "PS5";
-  return "PS4 • PS5";
-}
+// LINK GÖNDƏRİLƏNDƏ
+bot.on("message", async (msg) => {
+  if (!msg.text) return;
+  if (!msg.text.startsWith("http")) return;
 
-bot.on("message", async msg=>{
-  const text=msg.text;
-  if(!text||!text.includes("store.playstation.com/en-tr"))return;
+  const chatId = msg.chat.id;
+  const url = msg.text;
 
-  const ua=text.replace("en-tr","uk-ua");
+  try {
+    const res = await fetch(url);
+    const html = await res.text();
+    const $ = cheerio.load(html);
 
-  const [trHtml, uaHtml]=await Promise.all([
-    fetch(text).then(r=>r.text()),
-    fetch(ua).then(r=>r.text())
-  ]);
+    const games = [];
 
-  const $tr=cheerio.load(trHtml);
-  const $ua=cheerio.load(uaHtml);
+    $("a").each((i, el) => {
+      const title = $(el).text().trim();
+      const img = $(el).find("img").attr("src");
 
-  const a=$tr('a[href*="/product/"]').first();
-  const title=a.text().trim();
-  const container=a.closest("li,div");
-  const textBlock=container.text();
-  const trPrice=toNum(textBlock.match(/(\d{1,3}(\.\d{3})*,\d{2})\s*TL/)?.[1]);
-  const platform=detectPlatform(textBlock);
-  const cover=container.find("img").attr("src");
+      if (title.length > 5 && img) {
+        games.push({
+          title,
+          img,
+          tr: "-",
+          ua: "-",
+          date: discountDate
+        });
+      }
+    });
 
-  const uaBlock=$ua('a[href*="/product/"]').first().closest("li,div").text();
-  const uaPrice=toNum(uaBlock.match(/UAH\s*([\d\s]+,\d{2})/)?.[1]);
+    if (games.length === 0) {
+      return bot.sendMessage(chatId, "Oyun tapılmadı.");
+    }
 
-  const trAzn=map(trPrice, tiersTR);
-  const uaAzn=map(uaPrice, tiersUA);
+    const game = games[0]; // hələlik ilkini götürürük
 
-  const coverBuf=Buffer.from(await fetch(cover).then(r=>r.arrayBuffer()));
-  await fs.writeFile("cover.jpg", coverBuf);
+    const imagePath = await renderImage(game);
 
-  const img = await renderImage({
-    title,
-    tr:trAzn,
-    ua:uaAzn,
-    platform,
-    date:"Endirimin son tarixi",
-    cover:"cover.jpg"
-  });
+    await bot.sendPhoto(chatId, imagePath, {
+      caption: `${game.title}\nTR: ${game.tr}\nUA: ${game.ua}`
+    });
 
-  await bot.sendPhoto(msg.chat.id, img, {
-    caption:`${title}\n${platform}\nTR: ${trAzn} | UA: ${uaAzn}`
-  });
+  } catch (err) {
+    console.log(err);
+    bot.sendMessage(chatId, "Xəta baş verdi.");
+  }
 });
