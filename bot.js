@@ -1,40 +1,19 @@
 import TelegramBot from "node-telegram-bot-api";
-import fetch from "node-fetch";
 import * as cheerio from "cheerio";
 import { renderImage } from "./render.js";
 
-// BOT TOKEN
-const bot = new TelegramBot(process.env.BOT_TOKEN, {
-  polling: {
-    autoStart: true,
-    interval: 300,
-    params: { timeout: 10 }
-  }
-});
+const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 
-// START
 bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id, "Link göndər və ya /d 16.02.2026 yaz");
+  bot.sendMessage(msg.chat.id, "Link göndər.");
 });
 
-// TARIX KOMANDASI
-let discountDate = "";
-
-bot.onText(/\/d (.+)/, (msg, match) => {
-  discountDate = match[1];
-  bot.sendMessage(msg.chat.id, "Tarix yadda saxlandı: " + discountDate);
-});
-
-// LINK GÖNDƏRİLƏNDƏ
 bot.on("message", async (msg) => {
   if (!msg.text) return;
-  if (!msg.text.startsWith("http")) return;
-
-  const chatId = msg.chat.id;
-  const url = msg.text;
+  if (!msg.text.includes("store.playstation.com")) return;
 
   try {
-    const res = await fetch(url);
+    const res = await fetch(msg.text);
     const html = await res.text();
     const $ = cheerio.load(html);
 
@@ -42,33 +21,27 @@ bot.on("message", async (msg) => {
 
     $("a").each((i, el) => {
       const title = $(el).text().trim();
-      const img = $(el).find("img").attr("src");
-
-      if (title.length > 5 && img) {
+      if (title.length > 5 && games.length < 1) {
         games.push({
           title,
-          img,
-          tr: "-",
-          ua: "-",
-          date: discountDate
+          image: "https://upload.wikimedia.org/wikipedia/commons/0/00/PlayStation_logo.svg",
+          tr: "500 ₼",
+          ua: "450 ₼",
+          date: "16.02.2026"
         });
       }
     });
 
-    if (games.length === 0) {
-      return bot.sendMessage(chatId, "Oyun tapılmadı.");
+    if (!games.length) {
+      bot.sendMessage(msg.chat.id, "Oyun tapılmadı.");
+      return;
     }
 
-    const game = games[0]; // hələlik ilkini götürürük
-
-    const imagePath = await renderImage(game);
-
-    await bot.sendPhoto(chatId, imagePath, {
-      caption: `${game.title}\nTR: ${game.tr}\nUA: ${game.ua}`
-    });
+    const file = await renderImage(games[0]);
+    await bot.sendPhoto(msg.chat.id, file);
 
   } catch (err) {
     console.log(err);
-    bot.sendMessage(chatId, "Xəta baş verdi.");
+    bot.sendMessage(msg.chat.id, "Xəta baş verdi.");
   }
 });
