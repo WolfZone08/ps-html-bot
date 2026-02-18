@@ -1,29 +1,63 @@
 import puppeteer from "puppeteer";
-import fs from "fs/promises";
+import fs from "fs";
+import path from "path";
 
-export async function render(data) {
+export async function renderImage(data) {
+  const {
+    title,
+    cover,
+    trPrice,
+    uaPrice,
+    endDate,
+    platform
+  } = data;
+
+  const templatePath = path.resolve("./template.html");
+  let html = fs.readFileSync(templatePath, "utf8");
+
+  // Replace placeholders
+  html = html
+    .replace("{{TITLE}}", title)
+    .replace("{{COVER}}", cover)
+    .replace("{{TR_PRICE}}", trPrice)
+    .replace("{{UA_PRICE}}", uaPrice)
+    .replace("{{END_DATE}}", endDate)
+    .replace("{{PLATFORM}}", platform);
+
   const browser = await puppeteer.launch({
     headless: "new",
-    args: ["--no-sandbox"]
+    args: ["--no-sandbox", "--disable-setuid-sandbox"]
   });
 
   const page = await browser.newPage();
-  await page.setViewport({ width: 1080, height: 1350 });
 
-  await page.goto("file://" + process.cwd() + "/template.html");
+  await page.setViewport({
+    width: 1080,
+    height: 1350
+  });
 
-  await page.evaluate((d) => {
-    document.getElementById("title").textContent = d.title;
-    document.getElementById("price_tr").textContent = d.tr;
-    document.getElementById("price_ua").textContent = d.ua;
-    document.getElementById("platform").textContent = d.platform;
-    document.getElementById("endDate").textContent = d.date;
-  }, data);
+  await page.setContent(html, { waitUntil: "networkidle0" });
 
-  const img = "data:image/jpeg;base64," + (await fs.readFile(data.cover)).toString("base64");
-  await page.evaluate((src)=>{document.getElementById("cover").src=src}, img);
+  // 🔥 AUTO TITLE SIZE
+  await page.evaluate(() => {
+    const title = document.getElementById("title");
+    let size = 60;
+    title.style.fontSize = size + "px";
 
-  const buf = await page.screenshot({type:"jpeg",quality:92});
+    while (title.scrollHeight > title.clientHeight && size > 34) {
+      size -= 2;
+      title.style.fontSize = size + "px";
+    }
+  });
+
+  const imagePath = path.resolve("./output.png");
+
+  await page.screenshot({
+    path: imagePath,
+    type: "png"
+  });
+
   await browser.close();
-  return buf;
+
+  return imagePath;
 }
