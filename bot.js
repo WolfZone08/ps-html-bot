@@ -1,58 +1,53 @@
 import TelegramBot from "node-telegram-bot-api";
 import fetch from "node-fetch";
+import * as cheerio from "cheerio";
 
 const bot = new TelegramBot(process.env.BOT_TOKEN, {
-  polling: true,
+  polling: true
 });
 
 bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id, "TR category link göndər.");
+  bot.sendMessage(msg.chat.id, "PlayStation oyun linki göndər.");
 });
 
 bot.on("message", async (msg) => {
-  if (!msg.text) return;
-  if (!msg.text.includes("store.playstation.com")) return;
-
   const chatId = msg.chat.id;
+  const text = msg.text;
+
+  if (!text || !text.includes("store.playstation.com")) return;
 
   try {
-    const res = await fetch(msg.text);
-    const html = await res.text();
+    const response = await fetch(text, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
+      }
+    });
 
-    const match = html.match(/"conceptId":"(.*?)"/);
-    if (!match) {
-      bot.sendMessage(chatId, "Oyun tapılmadı.");
+    const html = await response.text();
+    const $ = cheerio.load(html);
+
+    const title = $('meta[property="og:title"]').attr("content");
+    const image = $('meta[property="og:image"]').attr("content");
+
+    const priceTR = html.match(/"price":"([^"]+)"/);
+    const priceUA = html.match(/"basePrice":"([^"]+)"/);
+
+    if (!title) {
+      bot.sendMessage(chatId, "Oyun tapılmadı və ya səhifə bloklandı.");
       return;
     }
 
-    const conceptId = match[1];
+    let caption = `🎮 ${title}\n`;
 
-    const api = `https://store.playstation.com/store/api/chihiro/00_09_000/container/TR/en/999/${conceptId}`;
-    const data = await fetch(api).then(r => r.json());
-
-    const game = data?.included?.[0];
-    if (!game) {
-      bot.sendMessage(chatId, "Data tapılmadı.");
-      return;
-    }
-
-    const name = game.attributes.name;
-    const price = game.attributes.price?.displayPrice || "-";
-    const discountEnd = game.attributes.price?.endDate || "-";
-    const image = game.attributes.images?.[0]?.url;
-
-    const caption =
-`🎮 ${name}
-
-🇹🇷 ${price}
-🕒 ${discountEnd}`;
+    if (priceTR) caption += `TR: ${priceTR[1]} TL\n`;
+    if (priceUA) caption += `UA: ${priceUA[1]} UAH\n`;
 
     if (image) {
       await bot.sendPhoto(chatId, image, { caption });
     } else {
       await bot.sendMessage(chatId, caption);
     }
-
   } catch (err) {
     bot.sendMessage(chatId, "Xəta baş verdi.");
   }
