@@ -1,5 +1,5 @@
 import TelegramBot from "node-telegram-bot-api";
-import cheerio from "cheerio";
+import * as cheerio from "cheerio";
 import fs from "fs/promises";
 import { render } from "./render.js";
 
