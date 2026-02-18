@@ -1,259 +1,193 @@
 <!doctype html>
-<html lang="az">
+<html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <style>
-    :root{
-      --bg1:#12021f;
-      --bg2:#2a0a46;
-      --card:#12061f;
-      --muted:rgba(255,255,255,.72);
-      --muted2:rgba(255,255,255,.55);
-      --line:rgba(255,255,255,.12);
-      --green:#2ee59d;
-      --red:#ff5b6e;
-      --yellow:#ffd166;
-      --white:#fff;
-    }
-    *{ box-sizing:border-box; }
-    body{
-      margin:0;
-      width:1080px;  /* Telegram üçün ideal */
-      height:1350px; /* şaquli format */
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: radial-gradient(1200px 900px at 30% 20%, rgba(255,255,255,.08), transparent 60%),
-                  radial-gradient(900px 700px at 90% 10%, rgba(255,255,255,.06), transparent 60%),
-                  linear-gradient(160deg, var(--bg2), var(--bg1) 55%, #07000d);
-      color:var(--white);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    }
-    .wrap{
-      width:980px;
-      height:1250px;
-      padding:26px;
-      border:1px solid rgba(255,255,255,.10);
-      border-radius:28px;
-      background: rgba(0,0,0,.18);
-      box-shadow: 0 20px 60px rgba(0,0,0,.55);
-      position:relative;
-      overflow:hidden;
-    }
-    .top{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      padding:8px 10px 18px;
-    }
-    .brand{
-      display:flex;
-      gap:12px;
-      align-items:center;
-      font-weight:700;
-      letter-spacing:.2px;
-      font-size:22px;
-      opacity:.95;
-    }
-    .dot{
-      width:14px;height:14px;border-radius:50%;
-      background:linear-gradient(180deg,#a855f7,#7c3aed);
-      box-shadow:0 0 24px rgba(168,85,247,.55);
-    }
-    .meta{
-      text-align:right;
-      font-size:14px;
-      color:var(--muted2);
-      line-height:1.35;
-    }
-    .content{
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:18px;
-    }
+<meta charset="utf-8"/>
+<style>
+  *{box-sizing:border-box}
+  body{
+    margin:0; width:1080px; height:1350px;
+    font-family: Arial, Helvetica, sans-serif;
+    color:#fff;
+    background:
+      radial-gradient(900px 700px at 20% 15%, rgba(168,85,247,.25), transparent 60%),
+      radial-gradient(800px 600px at 90% 10%, rgba(59,130,246,.18), transparent 55%),
+      linear-gradient(160deg,#2b0a46,#0b0613 55%, #06010b);
+    overflow:hidden;
+    position:relative;
+  }
 
-    /* Cover */
-    .cover{
-      width:100%;
-      height:640px;
-      border-radius:22px;
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,.10);
-      background:rgba(0,0,0,.25);
-      position:relative;
-    }
-    .cover img{
-      width:100%;
-      height:100%;
-      object-fit:cover; /* Şəkil qaranlıq/blurry olmasın */
-      display:block;
-      filter: saturate(1.05) contrast(1.05);
-      transform: scale(1.02);
-    }
-    .cover::after{
-      content:"";
-      position:absolute; inset:0;
-      background: linear-gradient(180deg, rgba(0,0,0,.0), rgba(0,0,0,.10), rgba(0,0,0,.55));
-      pointer-events:none;
-    }
+  .frame{
+    position:absolute; inset:40px;
+    border-radius:34px;
+    border:1px solid rgba(255,255,255,.12);
+    background: rgba(0,0,0,.18);
+    box-shadow: 0 22px 70px rgba(0,0,0,.55);
+    padding:28px;
+  }
 
-    /* Title smaller, clean */
-    .title{
-      margin-top:-8px;
-      padding:0 6px;
-      font-size:40px;   /* iri deyil */
-      font-weight:850;
-      line-height:1.1;
-      letter-spacing:-.4px;
-      text-shadow:0 6px 30px rgba(0,0,0,.55);
-      word-break:break-word;
-      display:-webkit-box;
-      -webkit-line-clamp:3; /* 3 sətirdən çox uzanmasın */
-      -webkit-box-orient:vertical;
-      overflow:hidden;
-    }
-    .sub{
-      padding:0 6px;
-      margin-top:6px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      color:var(--muted);
-      font-size:16px;
-      align-items:center;
-    }
-    .pill{
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(0,0,0,.22);
-      padding:7px 12px;
-      border-radius:999px;
-      font-weight:650;
-      font-size:14px;
-      color:rgba(255,255,255,.85);
-    }
+  .brand{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:16px;
+    opacity:.95;
+  }
+  .logo{
+    font-weight:900; font-size:22px; letter-spacing:.3px;
+    display:flex; gap:10px; align-items:center;
+  }
+  .dot{
+    width:14px; height:14px; border-radius:50%;
+    background:linear-gradient(180deg,#a855f7,#7c3aed);
+    box-shadow:0 0 25px rgba(168,85,247,.55);
+  }
+  .small{
+    font-size:14px; color:rgba(255,255,255,.65);
+    text-align:right; line-height:1.25;
+  }
 
-    /* Prices */
-    .prices{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:16px;
-      padding:6px;
-    }
-    .box{
-      border-radius:22px;
-      padding:16px 16px 14px;
-      border:1px solid rgba(255,255,255,.10);
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.18));
-      position:relative;
-      overflow:hidden;
-      min-height:180px;
-    }
-    .flag{
-      font-size:15px;
-      color:rgba(255,255,255,.92);
-      font-weight:800;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      margin-bottom:10px;
-    }
-    .big{
-      font-size:36px;
-      font-weight:900;
-      letter-spacing:-.4px;
-      margin:2px 0 4px;
-    }
-    .old{
-      font-size:16px;
-      color:rgba(255,255,255,.62);
-      text-decoration:line-through;
-      margin-top:2px;
-    }
-    .row{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      margin-top:10px;
-      color:rgba(255,255,255,.78);
-      font-size:14px;
-      line-height:1.3;
-    }
-    .badge{
-      padding:5px 10px;
-      border-radius:999px;
-      font-weight:800;
-      font-size:12px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(0,0,0,.22);
-      color:rgba(255,255,255,.86);
-      white-space:nowrap;
-    }
-    .badge.ok{ border-color:rgba(46,229,157,.35); color:rgba(46,229,157,.95); }
-    .badge.warn{ border-color:rgba(255,209,102,.35); color:rgba(255,209,102,.95); }
-    .badge.err{ border-color:rgba(255,91,110,.35); color:rgba(255,91,110,.95); }
+  .coverWrap{
+    width:100%;
+    height:640px;
+    border-radius:26px;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.06);
+    position:relative;
+  }
+  .coverWrap img{
+    width:100%; height:100%;
+    object-fit:cover;
+    display:block;
+    filter: saturate(1.05) contrast(1.05);
+    transform: scale(1.02);
+  }
+  .coverWrap:after{
+    content:"";
+    position:absolute; inset:0;
+    background: linear-gradient(180deg, rgba(0,0,0,.0), rgba(0,0,0,.15), rgba(0,0,0,.65));
+    pointer-events:none;
+  }
 
-    /* Footer links */
-    .footer{
-      margin-top:6px;
-      padding:10px 8px 0;
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      color:rgba(255,255,255,.55);
-      font-size:13px;
-      border-top:1px solid rgba(255,255,255,.10);
-    }
-    .footer .u{
-      max-width:48%;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
-    }
-  </style>
+  #title{
+    margin:18px 8px 0;
+    font-weight:900;
+    font-size:44px;
+    line-height:1.08;
+    letter-spacing:-.3px;
+    text-shadow:0 10px 40px rgba(0,0,0,.55);
+    max-height:170px;
+    overflow:hidden;
+  }
+
+  .pills{
+    display:flex; gap:10px; flex-wrap:wrap;
+    margin:10px 8px 0;
+  }
+  .pill{
+    padding:8px 12px;
+    border-radius:999px;
+    font-size:14px;
+    font-weight:800;
+    border:1px solid rgba(255,255,255,.14);
+    background: rgba(0,0,0,.22);
+    color: rgba(255,255,255,.86);
+  }
+
+  .prices{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:16px;
+    margin-top:18px;
+    padding:0 8px;
+  }
+  .box{
+    border-radius:22px;
+    padding:16px;
+    border:1px solid rgba(255,255,255,.10);
+    background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.18));
+    min-height:190px;
+  }
+  .head{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:15px; font-weight:900;
+    color: rgba(255,255,255,.92);
+    margin-bottom:10px;
+  }
+  .price{
+    font-size:40px; font-weight:900; letter-spacing:-.3px;
+    white-space:nowrap;
+  }
+  .sub{
+    margin-top:10px;
+    font-size:15px;
+    color: rgba(255,255,255,.75);
+  }
+  .end{
+    margin-top:8px;
+    font-size:15px;
+    color: rgba(255,255,255,.72);
+  }
+
+  .footer{
+    position:absolute;
+    left:28px; right:28px; bottom:22px;
+    padding-top:14px;
+    border-top:1px solid rgba(255,255,255,.10);
+    display:flex; justify-content:space-between; gap:12px;
+    font-size:12px; color:rgba(255,255,255,.55);
+  }
+  .u{
+    max-width:48%;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="top">
-      <div class="brand"><span class="dot"></span> PS Deals AZN</div>
-      <div class="meta">
-        <div>{{DATE}}</div>
-        <div>{{LOCALE_HINT}}</div>
+  <div class="frame">
+    <div class="brand">
+      <div class="logo"><span class="dot"></span> PS Deals AZN</div>
+      <div class="small">
+        <div id="nowText">—</div>
+        <div>Manual price mode</div>
       </div>
     </div>
 
-    <div class="content">
-      <div class="cover">
-        <img src="{{IMAGE_URL}}" alt="cover" />
+    <div class="coverWrap">
+      <img id="cover" src="{{IMAGE_URL}}" />
+    </div>
+
+    <div id="title">{{TITLE}}</div>
+
+    <div class="pills">
+      <div class="pill" id="platform">{{PLATFORM}}</div>
+      <div class="pill">PS4 • PS5</div>
+    </div>
+
+    <div class="prices">
+      <div class="box">
+        <div class="head"><span>🇹🇷 TR</span></div>
+        <div class="price" id="trPrice">{{TR_PRICE}}</div>
+        <div class="end">Endirim bitmə: <b id="endDate">{{END_DATE}}</b></div>
       </div>
 
-      <div class="title">{{TITLE}}</div>
-      <div class="sub">
-        <span class="pill">{{PLATFORM}}</span>
-        <span class="pill">PS4 • PS5</span>
+      <div class="box">
+        <div class="head"><span>🇺🇦 UA</span></div>
+        <div class="price" id="uaPrice">{{UA_PRICE}}</div>
+        <div class="sub">*Qiymətləri sən yazırsan</div>
       </div>
+    </div>
 
-      <div class="prices">
-        <div class="box">
-          <div class="flag"><span>🇹🇷 TR</span><span class="badge {{TR_STATUS}}">{{TR_LABEL}}</span></div>
-          <div class="big">{{TR_PRICE}}</div>
-          {{TR_OLD_BLOCK}}
-          <div class="row"><span class="badge {{TR_END_STATUS}}">Endirim bitmə</span> <span>{{TR_ENDS}}</span></div>
-        </div>
-
-        <div class="box">
-          <div class="flag"><span>🇺🇦 UA</span><span class="badge {{UA_STATUS}}">{{UA_LABEL}}</span></div>
-          <div class="big">{{UA_PRICE}}</div>
-          {{UA_OLD_BLOCK}}
-          <div class="row"><span class="badge {{UA_END_STATUS}}">Endirim bitmə</span> <span>{{UA_ENDS}}</span></div>
-        </div>
-      </div>
-
-      <div class="footer">
-        <div class="u">TR: {{TR_URL}}</div>
-        <div class="u">UA: {{UA_URL}}</div>
-      </div>
+    <div class="footer">
+      <div class="u">Link: {{URL}}</div>
+      <div class="u">© PS Deals</div>
     </div>
   </div>
+
+<script>
+  // tarix yazısı
+  const d = new Date();
+  const pad = n => String(n).padStart(2,"0");
+  document.getElementById("nowText").textContent =
+    pad(d.getDate())+"."+pad(d.getMonth()+1)+"."+d.getFullYear()+" "+pad(d.getHours())+":"+pad(d.getMinutes());
+</script>
 </body>
 </html>
