@@ -1,6 +1,5 @@
 import TelegramBot from "node-telegram-bot-api";
 import fetch from "node-fetch";
-import * as cheerio from "cheerio";
 
 const bot = new TelegramBot(process.env.BOT_TOKEN, {
   polling: true
@@ -14,40 +13,35 @@ bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
 
-  if (!text || !text.includes("store.playstation.com")) return;
+  if (!text || !text.includes("/product/")) return;
 
   try {
-    const response = await fetch(text, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
-      }
-    });
+    const productId = text.split("/product/")[1].split("/")[0];
 
-    const html = await response.text();
-    const $ = cheerio.load(html);
+    const apiUrl = `https://store.playstation.com/store/api/chihiro/00_09_000/container/TR/en/999/${productId}`;
 
-    const title = $('meta[property="og:title"]').attr("content");
-    const image = $('meta[property="og:image"]').attr("content");
+    const response = await fetch(apiUrl);
+    const data = await response.json();
 
-    const priceTR = html.match(/"price":"([^"]+)"/);
-    const priceUA = html.match(/"basePrice":"([^"]+)"/);
-
-    if (!title) {
-      bot.sendMessage(chatId, "Oyun tapılmadı və ya səhifə bloklandı.");
+    if (!data || !data.name) {
+      bot.sendMessage(chatId, "Oyun tapılmadı.");
       return;
     }
 
-    let caption = `🎮 ${title}\n`;
+    let caption = `🎮 ${data.name}\n`;
 
-    if (priceTR) caption += `TR: ${priceTR[1]} TL\n`;
-    if (priceUA) caption += `UA: ${priceUA[1]} UAH\n`;
+    if (data.default_sku?.price) {
+      caption += `Qiymət: ${data.default_sku.price}\n`;
+    }
+
+    const image = data.images?.[0]?.url;
 
     if (image) {
       await bot.sendPhoto(chatId, image, { caption });
     } else {
       await bot.sendMessage(chatId, caption);
     }
+
   } catch (err) {
     bot.sendMessage(chatId, "Xəta baş verdi.");
   }
