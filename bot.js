@@ -1,7 +1,7 @@
 import TelegramBot from "node-telegram-bot-api";
 import * as cheerio from "cheerio";
 import fs from "fs/promises";
-import { render } from "./render.js";
+import { renderImage } from "./render.js";
 
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling:true });
 
@@ -56,7 +56,7 @@ bot.on("message", async msg=>{
   const coverBuf=Buffer.from(await fetch(cover).then(r=>r.arrayBuffer()));
   await fs.writeFile("cover.jpg", coverBuf);
 
-  const img=await render({
+  const img = await renderImage({
     title,
     tr:trAzn,
     ua:uaAzn,
