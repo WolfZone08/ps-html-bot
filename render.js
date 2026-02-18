@@ -84,7 +84,7 @@ export async function renderCardPng(data) {
     await page.setContent(html, { waitUntil: "networkidle2", timeout: 60000 });
 
     // cover şəkli yüklənsin deyə qısa gözləmə
-    await page.waitForTimeout(800);
+    await new Promise((r) => setTimeout(r, 800));
 
     const png = await page.screenshot({ type: "png", fullPage: false });
     return png;
