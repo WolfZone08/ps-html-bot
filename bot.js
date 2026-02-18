@@ -1,132 +1,268 @@
 import TelegramBot from "node-telegram-bot-api";
 import puppeteer from "puppeteer";
-import { renderCard } from "./render.js";
 
-const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
+const TOKEN = process.env.BOT_TOKEN;
+if (!TOKEN) throw new Error("BOT_TOKEN yoxdur (Railway Variables-a əlavə et).");
 
-// Sadə “session” saxlayırıq (hər chat üçün)
-const sessions = new Map();
+const bot = new TelegramBot(TOKEN, { polling: true });
 
-bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id,
-    "1) PS product link göndər\n2) Mən TR/UA qiymət və bitmə tarixi soruşacam\n3) Sənin dizayna uyğun PNG göndərəcəm"
+/** ---------------- FX (AZN baza ilə) ----------------
+ * Mənbə: open.er-api.com (key tələb etmir).
+ * 1 AZN = X TRY, 1 AZN = X UAH qaytarır.
+ */
+let fxCache = { ts: 0, rates: null };
+
+async function getFxAZN() {
+  const now = Date.now();
+  if (fxCache.rates && now - fxCache.ts < 60 * 60 * 1000) return fxCache.rates; // 1 saat cache
+
+  const url = "https://open.er-api.com/v6/latest/AZN";
+  const res = await fetch(url);
+  const data = await res.json();
+
+  if (data?.result !== "success" || !data?.rates) {
+    throw new Error("FX API cavabı alınmadı.");
+  }
+
+  fxCache = { ts: now, rates: data.rates };
+  return fxCache.rates;
+}
+
+// TRY->AZN: azn = try / (TRY per 1 AZN)
+// UAH->AZN: azn = uah / (UAH per 1 AZN)
+function toAZN(amount, currency, rates) {
+  if (typeof amount !== "number" || !isFinite(amount)) return null;
+
+  if (currency === "TRY") {
+    const perAZN = rates.TRY;
+    if (!perAZN) return null;
+    return amount / perAZN;
+  }
+  if (currency === "UAH") {
+    const perAZN = rates.UAH;
+    if (!perAZN) return null;
+    return amount / perAZN;
+  }
+  return null;
+}
+
+function ceilAZN(x) {
+  if (x === null) return null;
+  return Math.ceil(x); // 70.3 -> 71
+}
+
+/** Mətn qiyməti rəqəmə çevirir:
+ * "₺1.299,90" / "1 299,90 ₴" / "₴1,299.90" -> 1299.90
+ */
+function parsePriceText(txt) {
+  if (!txt) return null;
+
+  const cleaned = String(txt)
+    .replace(/\s/g, "")
+    .replace(/[₺₴]/g, "")
+    .replace(/TRY|UAH/gi, "");
+
+  const hasComma = cleaned.includes(",");
+  const hasDot = cleaned.includes(".");
+  let numStr = cleaned;
+
+  if (hasComma && hasDot) {
+    const lastComma = cleaned.lastIndexOf(",");
+    const lastDot = cleaned.lastIndexOf(".");
+    const decSep = lastComma > lastDot ? "," : ".";
+    const thouSep = decSep === "," ? "." : ",";
+    numStr = cleaned.split(thouSep).join("");
+    numStr = decSep === "," ? numStr.replace(",", ".") : numStr;
+  } else if (hasComma && !hasDot) {
+    numStr = cleaned.replace(",", ".");
+  } else {
+    numStr = cleaned;
+  }
+
+  const val = Number(numStr);
+  return Number.isFinite(val) ? val : null;
+}
+
+/** Category səhifədən product linklərini çıxarır */
+function extractProductLinksFromCategory() {
+  const links = Array.from(document.querySelectorAll("a"))
+    .map((a) => a.href)
+    .filter((h) => h && h.includes("/product/"));
+
+  const uniq = [];
+  const seen = new Set();
+  for (const l of links) {
+    if (!seen.has(l)) {
+      seen.add(l);
+      uniq.push(l);
+    }
+  }
+  return uniq;
+}
+
+async function getCategoryProducts(browser, categoryUrl, limit = 24) {
+  const page = await browser.newPage();
+  await page.setUserAgent(
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/123 Safari/537.36"
   );
-});
 
-// Product ID çıxarır
-function extractProductId(text){
-  const m = String(text || "").match(/\/product\/([A-Z0-9_-]+)/i);
-  return m?.[1] || null;
+  await page.goto(categoryUrl, { waitUntil: "networkidle2", timeout: 60000 });
+
+  // bir az scroll: görünən kartlar yüklənsin
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight * 0.35));
+  await new Promise((r) => setTimeout(r, 700));
+
+  const productLinks = await page.evaluate(extractProductLinksFromCategory);
+  await page.close();
+
+  return productLinks.slice(0, limit);
 }
 
-function buildLocaleUrl(locale, productId){
-  return `https://store.playstation.com/${locale}/product/${productId}`;
-}
+async function scrapeProduct(browser, productUrl) {
+  const page = await browser.newPage();
+  await page.setUserAgent(
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/123 Safari/537.36"
+  );
 
-// Title + cover çəkməyə çalışırıq (blok olsa fallback)
-async function fetchMeta(productUrl){
-  const browser = await puppeteer.launch({
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+  await page.goto(productUrl, { waitUntil: "networkidle2", timeout: 60000 });
+
+  const data = await page.evaluate(() => {
+    const title =
+      document.querySelector("h1")?.innerText ||
+      document.querySelector('meta[property="og:title"]')?.getAttribute("content") ||
+      document.title ||
+      "";
+
+    // qiymət üçün bir neçə ehtimal
+    const selectors = [
+      '[data-qa*="finalPrice"]',
+      '[data-qa*="price"]',
+      '[data-testid*="price"]'
+    ];
+
+    let priceText = "";
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el?.innerText && /\d/.test(el.innerText)) {
+        priceText = el.innerText;
+        break;
+      }
+    }
+
+    // fallback: body text içindən ₺/₴ olan hissə
+    if (!priceText) {
+      const bodyText = document.body.innerText;
+      const m = bodyText.match(/(₺|₴)\s?\d[\d\s.,]*/);
+      if (m) priceText = m[0];
+    }
+
+    return { title: (title || "").trim(), priceText: (priceText || "").trim() };
   });
 
-  try{
-    const page = await browser.newPage();
-    await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/123 Safari/537.36");
-    await page.goto(productUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
+  await page.close();
+  return data;
+}
 
-    const meta = await page.evaluate(() => {
-      const title =
-        document.querySelector('meta[property="og:title"]')?.getAttribute("content") ||
-        document.querySelector("h1")?.innerText ||
-        document.title ||
-        "";
-      const image =
-        document.querySelector('meta[property="og:image"]')?.getAttribute("content") ||
-        document.querySelector("img")?.src ||
-        "";
-      return { title, image };
+/** Parallel işi limitləyən helper */
+async function mapLimit(arr, limit, fn) {
+  const ret = [];
+  let i = 0;
+  const workers = Array.from({ length: limit }, async () => {
+    while (i < arr.length) {
+      const idx = i++;
+      ret[idx] = await fn(arr[idx], idx);
+    }
+  });
+  await Promise.all(workers);
+  return ret;
+}
+
+/** ---------------- Telegram ---------------- */
+bot.onText(/\/start/, (msg) => {
+  bot.sendMessage(
+    msg.chat.id,
+    "TR category link at (endirim səhifəsi).\n\nMəs:\nhttps://store.playstation.com/en-tr/category/.../1\n\nVə ya:\n/cat <link>"
+  );
+});
+
+bot.onText(/\/cat (.+)/, async (msg, m) => {
+  const url = (m?.[1] || "").trim();
+  await handleCategory(msg.chat.id, url);
+});
+
+bot.on("message", async (msg) => {
+  const text = msg.text || "";
+  if (text.startsWith("/")) return;
+
+  if (text.includes("store.playstation.com") && text.includes("/category/")) {
+    await handleCategory(msg.chat.id, text.trim());
+  }
+});
+
+async function handleCategory(chatId, trCategoryUrl) {
+  try {
+    await bot.sendMessage(chatId, "Yoxlayıram… (səhifədə görünən ilk 24 oyun)");
+
+    const rates = await getFxAZN();
+
+    const browser = await puppeteer.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
     });
 
-    return {
-      title: (meta.title || "").trim(),
-      image: (meta.image || "").trim()
-    };
-  } catch {
-    return { title: "", image: "" };
-  } finally {
-    await browser.close();
+    try {
+      const trProducts = await getCategoryProducts(browser, trCategoryUrl, 24);
+
+      // TR linkini UA locale-ə çeviririk
+      const pairs = trProducts.map((trUrl) => {
+        const uaUrl = trUrl
+          .replace("/en-tr/", "/ru-ua/")
+          .replace("/tr-tr/", "/ru-ua/");
+        return { trUrl, uaUrl };
+      });
+
+      // Paralelliyi 2-3 saxla (blok riskini azaldır)
+      const results = await mapLimit(pairs, 3, async ({ trUrl, uaUrl }) => {
+        const tr = await scrapeProduct(browser, trUrl);
+        const ua = await scrapeProduct(browser, uaUrl);
+
+        const trVal = parsePriceText(tr.priceText);
+        const uaVal = parsePriceText(ua.priceText);
+
+        const trAZN = ceilAZN(toAZN(trVal, "TRY", rates));
+        const uaAZN = ceilAZN(toAZN(uaVal, "UAH", rates));
+
+        return {
+          title: tr.title || ua.title || "—",
+          trText: tr.priceText || "—",
+          uaText: ua.priceText || "—",
+          trAZN,
+          uaAZN
+        };
+      });
+
+      // Telegram mesaj limitinə görə bölürük
+      let out = `✅ Tapıldı: ${results.length}\n\n`;
+      for (const r of results) {
+        const block =
+          `🎮 ${r.title}\n` +
+          `🇹🇷 ${r.trText} → ${r.trAZN ?? "—"} ₼\n` +
+          `🇺🇦 ${r.uaText} → ${r.uaAZN ?? "—"} ₼\n\n`;
+
+        if (out.length + block.length > 3500) {
+          await bot.sendMessage(chatId, out);
+          out = "";
+        }
+        out += block;
+      }
+      if (out.trim()) await bot.sendMessage(chatId, out);
+
+      await bot.sendMessage(chatId, "Bitdi ✅");
+    } finally {
+      await browser.close().catch(() => {});
+    }
+  } catch (e) {
+    await bot.sendMessage(chatId, `Xəta: ${e.message}`);
   }
 }
 
-bot.on("message", async (msg) => {
-  const chatId = msg.chat.id;
-  const text = msg.text || "";
-
-  // /start kimi komandaları keç
-  if (text.startsWith("/")) return;
-
-  // Əgər session varsa, deməli bot sual verib – indi user cavab verir
-  const s = sessions.get(chatId);
-  if (s?.step) {
-    if (s.step === "TR_PRICE") {
-      s.trPrice = text.trim();
-      s.step = "UA_PRICE";
-      sessions.set(chatId, s);
-      return bot.sendMessage(chatId, "UA qiyməti yaz (misal: 799 UAH) :");
-    }
-    if (s.step === "UA_PRICE") {
-      s.uaPrice = text.trim();
-      s.step = "END_DATE";
-      sessions.set(chatId, s);
-      return bot.sendMessage(chatId, "Endirim bitmə tarixi yaz (misal: 28.02.2026) — yoxdursa `-` yaz:");
-    }
-    if (s.step === "END_DATE") {
-      s.endDate = text.trim() === "-" ? "—" : text.trim();
-      s.step = null;
-      sessions.set(chatId, s);
-
-      // Render et və göndər
-      const png = await renderCard({
-        title: s.title || "—",
-        imageUrl: s.image || "https://upload.wikimedia.org/wikipedia/commons/3/3a/Gray_circles_rotate.gif",
-        platform: s.platform || "PS4 • PS5",
-        trPrice: s.trPrice || "—",
-        uaPrice: s.uaPrice || "—",
-        endDate: s.endDate || "—",
-        url: s.url || "—"
-      });
-
-      await bot.sendPhoto(chatId, png, {
-        caption: `Hazır ✅\n${s.title}\nTR: ${s.trPrice}\nUA: ${s.uaPrice}\nBitmə: ${s.endDate}`
-      });
-
-      sessions.delete(chatId);
-      return;
-    }
-  }
-
-  // Yeni link gəlirsə
-  const productId = extractProductId(text);
-  if (!productId) {
-    return bot.sendMessage(chatId, "Product link göndər: içində `/product/XXXX` olmalıdır.");
-  }
-
-  // Biz TR locale linkini götürürük (title + cover üçün)
-  const trUrl = buildLocaleUrl("tr-tr", productId);
-
-  // Title + cover çək (alınmasa da problem deyil)
-  const meta = await fetchMeta(trUrl);
-
-  const session = {
-    url: trUrl,
-    title: meta.title || "Game",
-    image: meta.image || "",
-    platform: "PS4 • PS5",
-    step: "TR_PRICE"
-  };
-  sessions.set(chatId, session);
-
-  await bot.sendMessage(chatId,
-    `Link alındı ✅\nBaşlıq: ${session.title || "—"}\n\nİndi TR qiyməti yaz (misal: 799 TL) :`
-  );
-});
+console.log("Bot başladı…");
